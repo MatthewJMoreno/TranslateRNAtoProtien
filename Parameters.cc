@@ -39,8 +39,6 @@ Parameters get_parameters(int argc, char* argv[])
 		std::exit(0);
 	}
 
-	std::cout << "made it to line 42" << std::endl;
-
 	pars.input_file = argv[1];
 	pars.output_file = argv[2];
 	pars.reading_frame = 1;
@@ -69,7 +67,6 @@ Parameters get_parameters(int argc, char* argv[])
 
 	std::ifstream ifs;
 	ifs.open(pars.input_file.c_str());
-	std::cout << "made it to line 67" << std::endl;
 
 	if (ifs.fail())
 	{
