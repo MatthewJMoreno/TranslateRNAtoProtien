@@ -18,45 +18,58 @@
  */ 
 
 #include "Parameters.hh"
-#include <boost/filesystem.hpp>
-namespace fs = boost::filesystem;
-#include <boost/program_options.hpp>
-namespace po = boost::program_options;
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
 
+void help_message(){
+	std::cout << "\nThis program takes the following arguments:" << '\n';
+	std::cout << "  inputFile: A FASTA nucleotide file to convert" << '\n';
+	std::cout << "  outputFile: FASTA amino acid file generated" << '\n';
+	std::cout << "  reading-frame *optional*: 1, 2 or 3. Note, default is set to 1" << '\n';
+	std::cout << "  strand *optional*: direct or reverse. Note, default is set to direct" << '\n' << '\n';
+}
+
 Parameters get_parameters(int argc, char* argv[])
 {
 	Parameters pars;
-	
-	// Create options decription
-	po::options_description opts_desc("Translate DNA or RNA sequences to protein sequences by using the \"standard\" genetic code.\nAvailable options");
-		
-	opts_desc.add_options()
-		("help,h", "print this help message")
-		("input-file,i", po::value<std::string>(&pars.input_file), "FASTA nucleotide file to convert")
-		("output-file,o", po::value<std::string>(&pars.output_file), "FASTA amino acid file generated")
-		("reading-frame", po::value<unsigned>(&pars.reading_frame)->default_value(1), "1, 2 or 3")
-		("strand", po::value<std::string>(&pars.strand)->default_value("direct"), "\"direct\" or \"reverse\"")
-		;
 
-	// Retrieve and parse command line parameters
-	po::variables_map vm;
-	po::store(po::parse_command_line(argc, argv, opts_desc), vm);
-
-	// Print help
-	if (argc == 1 || vm.count("help"))
-	{
-		std::cout << opts_desc << std::endl;
+	if (argc < 3){
+		help_message();
 		std::exit(0);
 	}
 
-	po::notify(vm);
+	std::cout << "made it to line 42" << std::endl;
 
-	// Check input file
+	pars.input_file = argv[1];
+	pars.output_file = argv[2];
+	pars.reading_frame = 1;
+	pars.strand = "direct";
+
+	if (argc > 3){
+		pars.reading_frame = atoi(argv[3]);
+		if (pars.reading_frame < 1 || pars.reading_frame > 3){
+			help_message();
+			std::exit(0);
+		}
+	}
+
+	if (argc > 4){
+		pars.strand = argv[4];
+		if (!(pars.strand.compare("direct") == 0 || pars.strand.compare("reverse") == 0)){
+			help_message();
+			std::exit(0);
+		}
+	}
+
+	if (argc > 5){
+		help_message();
+		std::exit(0);
+	}
+
 	std::ifstream ifs;
 	ifs.open(pars.input_file.c_str());
+	std::cout << "made it to line 67" << std::endl;
 
 	if (ifs.fail())
 	{
