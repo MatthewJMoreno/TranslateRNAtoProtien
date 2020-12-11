@@ -7,12 +7,16 @@ LDFLAGS = $(BOOST_LIBS)
 
 SRC = $(wildcard *.cc)
 OBJECTS = $(patsubst %.cc, %.o, $(SRC))
+OBJS = timer.o
 
 .PHONY : clean
 
 all: $(EXEC)
 
-$(EXEC): $(OBJECTS)
+timer.o: timer.c
+	$(CC) -O3 -o $@ -c $<
+
+$(EXEC): $(OBJECTS) $(OBJS)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 %.o: %.cc
