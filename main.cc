@@ -17,48 +17,60 @@
  * along with sequence-translator.  If not, see <http://www.gnu.org/licenses/>.
  */ 
 
-#include "TimeProfiler.hh"
 #include "Parameters.hh"
 #include "FastaParser.hh"
 #include "SequenceTranslator.hh"
 #include "FastaWriter.hh"
 #include <iostream>
 #include <cstdlib>
+#include "timer.h"
 
 int main(int argc, char *argv[])
 {
+	double readingTime;
+	double computationTime;
+	double writingTime;
+	double totalTime;
+
 	try
 	{
-		TimeProfiler time_profiler;
-		time_profiler.start_new_timer("Total");
+		initialize_timer();
 
 		const Parameters& parameters = get_parameters(argc, argv);
 
-		std::auto_ptr<SequenceTranslator> sequence_translator =
-			SequenceTranslatorFactory::create_translator(parameters.reading_frame, parameters.strand);
+		std::auto_ptr<SequenceTranslator> sequence_translator = SequenceTranslatorFactory::create_translator(parameters.reading_frame, parameters.strand);
 		FastaParser fasta_parser(parameters.input_file);
 		FastaWriter fasta_writer(parameters.output_file);
 
 		std::cout << "Reading FASTA nucleotide file..." << std::endl;
-		time_profiler.start_new_timer("Reading FASTA nucleotide file");
+		start_timer();
 		std::vector<FastaRecord> records = fasta_parser.parse_file();
-		time_profiler.stop_last_timer();
+		stop_timer();
+   	readingTime = elapsed_time();
 		std::cout << "Done. FASTA file has " << records.size() << " entries.\n" << std::endl;
 
 		std::cout << "Translating to FASTA amino acid..." << std::endl;
-		time_profiler.start_new_timer("Translating to FASTA amino acid");
+		reset_timer();
+		start_timer();
 		sequence_translator->translate(records);
-		time_profiler.stop_last_timer();
+		stop_timer();
+		computationTime = elapsed_time();
 		std::cout << "Done\n" << std::endl;
 
 		std::cout << "Writing FASTA amino acid file..." << std::endl;
-		time_profiler.start_new_timer("Writing FASTA amino acid file");
+		reset_timer();
+		start_timer();
 		fasta_writer.write(records);
-		time_profiler.stop_last_timer();
+		stop_timer();
+		writingTime = elapsed_time();
 		std::cout << "Done\n" << std::endl;
 
-		time_profiler.stop_last_timer();
-		std::cout << time_profiler << std::endl;
+		totalTime = readingTime + computationTime + writingTime;
+
+		std::cout << "Reading time: " << readingTime << 's' << '\n';
+		std::cout << "Computation time: " << computationTime << 's' << '\n';
+		std::cout << "Writing time: " << writingTime << 's' << '\n';
+		std::cout << "Total time: " << totalTime << 's' << '\n';
 
 		std::exit(0);
 	}
