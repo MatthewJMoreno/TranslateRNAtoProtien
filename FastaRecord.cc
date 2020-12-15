@@ -19,21 +19,17 @@
 
 #include "FastaRecord.hh"
 
-std::ostream& operator<<(std::ostream& os, const FastaRecord& fr)
-{
+std::ostream& operator<<(std::ostream& os, const FastaRecord& fr){
 	os << fr.header << '\n';
 	os << fr.sequence << '\n';
 
 	return os;
 }
 
-std::istream& operator>>(std::istream& is, FastaRecord& fr )
-{
+std::istream& operator>>(std::istream& is, FastaRecord& fr ){
 	std::string line;
-    if (std::getline(is, line))
-	{
-		if (line[0] ==  '>')
-		{
+    if (std::getline(is, line)){
+		if (line[0] ==  '>'){
             fr.header.swap(line);
 
             std::string sequence;

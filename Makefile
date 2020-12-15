@@ -1,6 +1,6 @@
 EXEC = sequence-translator
 
-CC = g++
+CC = mpiCC --std=c++17 -lstdc++fs
 CFLAGS = -Wall -Wextra -O3 -march=native
 BOOST_LIBS = -lboost_program_options -lboost_filesystem -lboost_system
 LDFLAGS = $(BOOST_LIBS) 
@@ -16,7 +16,7 @@ all: $(EXEC)
 timer.o: timer.c
 	$(CC) -O3 -o $@ -c $<
 
-$(EXEC): $(OBJECTS) $(OBJS)
+$(EXEC): $(OBJECTS) $(OBJS) 
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 %.o: %.cc
