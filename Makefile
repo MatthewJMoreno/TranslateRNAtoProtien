@@ -1,4 +1,4 @@
-EXEC = sequence-translator
+EXEC = sequence-translator sequence-translatorOPT
 
 CC = mpiCC --std=c++17 -lstdc++fs
 CFLAGS = -Wall -Wextra -O3 -march=native
@@ -16,8 +16,11 @@ all: $(EXEC)
 timer.o: timer.c
 	$(CC) -O3 -o $@ -c $<
 
-$(EXEC): $(OBJECTS) $(OBJS)
-	$(CC) $^ -o $@ $(LDFLAGS)
+sequence-translator: seq.cc $(OBJECTS) $(OBJS)
+  $(CC) $^ -o $@ $(LDFLAGS)
+
+sequence-translatorOPT: main.cc $(OBJECTS) $(OBJS)
+  $(CC) $^ -o $@ $(LDFLAGS)
 
 %.o: %.cc
 	$(CC) $(CFLAGS) -c $< -o $@
