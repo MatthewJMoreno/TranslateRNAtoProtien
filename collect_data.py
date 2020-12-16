@@ -8,14 +8,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+fasta_file = 'allChromosomes_pretty.fa'
+
 seq = {
     'program_name': './sequence_translator',
     'time_tokens': ['Reading time:', 'Computation time:', 'Writing time:', 'Total time:']
 }
 
-omp = {
-    'program_name': './prog_OMP',
-    'time_token': 'time ='
+# OPT for Optimized, uses both MPI and OMP
+opt = {
+    'program_name': 'sequence_translatorOPT',
+    'time_tokens': ['Reading time:', 'Computation time:', 'Writing time:', 'Total time:']
 }
 
 def plot_multi(data, cols=None, spacing=.1, **kwargs):
@@ -50,24 +53,45 @@ def plot_multi(data, cols=None, spacing=.1, **kwargs):
     return ax
 
 # [program] Dict
-def collect_data(program, sizes):
-    times = []
-    thread_means = []
+def collect_data(program, cores, multi=False):
+    thread_mean_dicts = []
+
+    exec_args = [program['program_name'], fasta_file, '../out.fa']
+    # Launch across multiple machines if multi
+    if multi:
+        exec_args = ['mpirun', '-np', str(cores), '--hostfile', 'h2', '--mca', 'btl_tcp_if_include', 'eno1'] + exec_args
+    else:
+        exec_args = ['mpirun', '-np', str(cores)] + exec_args
+
+    
     for threads in range(1, 9):
         print("Threads:", threads)
         os.environ['OMP_NUM_THREADS'] = str(threads)
-        for size in sizes:
-            results = []
-            for i in range(0, 3): 
-                output = subprocess.run([program['program_name']] + str(size).split(), capture_output=True).stdout.decode('utf-8')
-                result = re.search('(?<=' + program['time_token'] + ').\S*', output).group(0).strip()
-                print((threads, size, result))
-                results.append(float(result))
-            results.remove(max(results))
-            results.remove(min(results))
-            mean = sum(results)/len(results)
-            thread_means.append((threads, size, mean))
-    return thread_means 
+        
+        results = []
+        for i in range(8): 
+            output = subprocess.run(exec_args, capture_output=True).stdout.decode('utf-8')
+
+            times = [] # Each elem is one time per exec
+            for token in program['time_tokens']:
+                result = re.search('(?<=' + token + ').\S*', output).group(0).strip()
+                print(threads, token, result)
+                times.append(float(result))
+            results.append(times)
+        
+        print("Results for", threads, "threads:")
+        results = {}
+        # zip(*) creates array of arrays where each array is a type of time, i.e. total time
+        for time_type, time_set in zip(program['time_tokens'], zip(*results)):
+            print(time_type, ':', time_set)
+            time_set.remove(max(time_set))
+            time_set.remove(min(time_set))
+            mean = sum(time_set)/len(time_set)
+            results[time_type] = mean; 
+
+        thread_mean_dicts.append((threads, results))
+
+    return thread_mean_dicts 
 
 # [program] Dict
 def collect_seq_data(program, sizes):
@@ -95,48 +119,87 @@ def collect_seq_data(program, sizes):
     return results
 
 
-# index represents the index of sizes array
-def calculate_speedup(baseline_mean, test_times, sizes):
-    speedup_list = []
-    # datum = (threads, problem_size, mean_time)
-    print(baseline_mean, sizes)
+# Returns [(threads, {'time_token': speedup, ...}), ...]
+def calculate_speedup(baseline_means, test_times):
+    speedups = []
+    print(baseline_means, test_times)
+
+    # datum = (threads, {token_string: mean_time, ...})
     for datum in test_times:
-        speedup = baseline_mean[2] / datum[2] * 100
-        speedup_list.append((datum[0], datum[1], speedup))
-    return speedup_list
+        speedup_dict = {}
+        for key, val in datum[1]:
+            speedup = baseline_means[key] / val * 100
+            speedup_dict[key] = speedup
+
+        speedups.append((datum[0], speedup_dict))
+    return speedups
 
 # collect_seq_data
-# returns a dict of key-value pairs
+# returns {'time_token': mean_time, ...}
+# i.e., a dict of key-value pairs
 # each key is a value from program['time_types']
 # value for each key is mean execution time
 seq_means = collect_seq_data(seq)
 
-omp_results = collect_data(omp)
-omp_speedups = calculate_speedup(seq_mean, omp_results, sizes)
+# Execute on one machine with 6 cores
+opt6_results = collect_data(opt, 6, False)
+# Execute using host file and 12 cores
+opt12_results = collect_data(opt, 12, True)
 
+# List of tuples where each tuple is (threads, {'time_token': speedup, ...})
+opt6_speedups = calculate_speedup(seq_means, opt6_results)
+opt12_speedups = calculate_speedup(seq_means, opt12_results)
 
-print(omp_speedups[0])
-data = pd.DataFrame({
+print(opt6_speedups[0])
+opt6_data = pd.DataFrame({
     "Threads": [i for i in range(1, 9)],
-    "300": [speedup[2] for speedup in omp_speedups if speedup[1] == sizes[0]], 
-    "3K": [speedup[2] for speedup in omp_speedups if speedup[1] == sizes[1]],
-    "30K": [speedup[2] for speedup in omp_speedups if speedup[1] == sizes[2]]
+    "Reading Time": [tup['Reading time:'] for tup in opt6_speedups], 
+    "Computation Time": [tup['Computation time:'] for tup in opt6_speedups], 
+    "Writing Time": [tup['Writing time:'] for tup in opt6_speedups], 
+    "Total Time": [tup['Total time:'] for tup in opt6_speedups] 
 })
 
 
-filename = 'test'
+opt12_data = pd.DataFrame({
+    "Threads": [i for i in range(1, 9)],
+    "Reading Time": [tup['Reading time:'] for tup in opt12_speedups], 
+    "Computation Time": [tup['Computation time:'] for tup in opt12_speedups], 
+    "Writing Time": [tup['Writing time:'] for tup in opt12_speedups], 
+    "Total Time": [tup['Total time:'] for tup in opt12_speedups] 
+})
+
+
+filename = 'Translator'
 data.to_csv(filename + '.csv', index = False)
+
+# ['Reading time:', 'Computation time:', 'Writing time:', 'Total time:']
+
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-plt.title('Speedup SEQ vs OMP')
-ax.scatter(data['Threads'], data['300'], label = '300')
-ax.scatter(data['Threads'], data['3K'], label = '3K')
-ax.scatter(data['Threads'], data['30K'], label = '30K')
+plt.title('Speedup SEQ vs OPT6')
+ax.scatter(opt6_data['Threads'], opt6_data['Reading Time'], label = 'Reading Time')
+ax.scatter(opt6_data['Threads'], opt6_data['Computation Time'], label = 'Computation Time')
+ax.scatter(opt6_data['Threads'], opt6_data['Writing Time'], label = 'Writing Time')
+
+ax.scatter(opt6_data['Threads'], opt6_data['Total Time'], label = 'Total Time')
 plt.xlabel('Threads')
 plt.ylabel('Speedup (%)')
 plt.legend()
-plt.savefig('results.png')
+plt.savefig('opt6-results.png')
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+plt.title('Speedup SEQ vs OPT12')
+ax.scatter(opt12_data['Threads'], opt12_data['Reading Time'], label = 'Reading Time')
+ax.scatter(opt12_data['Threads'], opt12_data['Computation Time'], label = 'Computation Time')
+ax.scatter(opt12_data['Threads'], opt12_data['Writing Time'], label = 'Writing Time')
+
+ax.scatter(opt12_data['Threads'], opt12_data['Total Time'], label = 'Total Time')
+plt.xlabel('Threads')
+plt.ylabel('Speedup (%)')
+plt.legend()
+plt.savefig('opt12-results.png')
 
 plt.show()    
 
