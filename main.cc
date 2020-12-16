@@ -20,13 +20,14 @@
 #include <iostream>
 #include "FastaParser.hh"
 #include "FastaWriter.hh"
-#include "FastaRecord.hh"
+#include <cstdlib>
+#include "timer.h"
+#include <filesystem>
+#include "mpi.h"
 #include "Parameters.hh"
 #include "SequenceTranslator.hh"
-#include "mpi.h"
-#include <filesystem>
 #include <fstream>
-#include "timer.h"
+#include "FastaRecord.hh"
 
 void MPI_Parallelization(Parameters parameters, char* fileName, int id, int p, int fileWidth, long long fileSize){
 	std::vector<FastaRecord> records;
@@ -270,10 +271,10 @@ void MPI_Parallelization(Parameters parameters, char* fileName, int id, int p, i
 }
 
 int main(int argc, char *argv[]){
-	//MPI_File in, out;
-	int id, p, fileWidth = 0;
-	long long fileSize;
-	char* fileName = argv[1];
+	int id;
+	int p;
+	long fileWidth;
+	long fileSize;
 	std::string line;
 
 	try{
@@ -295,10 +296,10 @@ int main(int argc, char *argv[]){
 		}
 		ifs.close();
 
-		std::filesystem::path file{fileName};
+		std::filesystem::path file{argv[1]};
 		fileSize = std::filesystem::file_size(file);
 
-		MPI_Parallelization(parameters, fileName, id, p, fileWidth, fileSize);
+		MPI_Parallelization(parameters, argv[1], id, p, fileWidth, fileSize);
 	} catch(const std::exception& e) {
 		std::cerr << e.what() << std::endl;
 	}

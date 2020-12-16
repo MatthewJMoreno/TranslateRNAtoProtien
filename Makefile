@@ -16,7 +16,7 @@ all: $(EXEC)
 timer.o: timer.c
 	$(CC) -O3 -o $@ -c $<
 
-$(EXEC): $(OBJECTS) $(OBJS) 
+$(EXEC): $(OBJECTS) $(OBJS)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 %.o: %.cc
